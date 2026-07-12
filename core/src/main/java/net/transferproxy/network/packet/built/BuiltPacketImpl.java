@@ -43,7 +43,6 @@ public class BuiltPacketImpl implements BuiltPacket {
         final ByteBuf buf = Unpooled.buffer();
         writeVarInt(buf, packet.getId());
         packet.write(buf);
-        buf.capacity(buf.readableBytes());
 
         this.data = new byte[buf.readableBytes()];
         buf.getBytes(buf.readerIndex(), this.data);
@@ -55,10 +54,8 @@ public class BuiltPacketImpl implements BuiltPacket {
 
     @Override
     public ByteBuf get(final @NotNull ByteBufAllocator allocator) {
-        final int length = this.data.length;
-        final ByteBuf buf = allocator.buffer(length, length);
-        buf.writeBytes(this.data);
-        return buf;
+        // Zero-copy: wraps the byte array without copying
+        return Unpooled.wrappedBuffer(this.data);
     }
 
 }

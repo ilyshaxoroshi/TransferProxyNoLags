@@ -54,17 +54,31 @@ public final class BufUtil {
     }
 
     public static void writeVarInt(final @NotNull ByteBuf buf, int value) {
-        if ((value & (0xFFFFFFFF << 7)) == 0) {
+        // Fully unrolled VarInt encoder: 1-5 bytes, no loop overhead
+        if ((value & 0xFFFFFF80) == 0) {
             buf.writeByte(value);
             return;
-        } else if ((value & (0xFFFFFFFF << 14)) == 0) {
-            buf.writeShort((value & 0x7F | 0x80) << 8 | (value >>> 7));
+        }
+        buf.writeByte(value | 0x80);
+        value >>>= 7;
+        if ((value & 0xFFFFFF80) == 0) {
+            buf.writeByte(value);
             return;
         }
-        while ((value & 0xFFFFFF80) != 0x0) {
-            buf.writeByte(value | 0x80);
-            value >>>= 7;
+        buf.writeByte(value | 0x80);
+        value >>>= 7;
+        if ((value & 0xFFFFFF80) == 0) {
+            buf.writeByte(value);
+            return;
         }
+        buf.writeByte(value | 0x80);
+        value >>>= 7;
+        if ((value & 0xFFFFFF80) == 0) {
+            buf.writeByte(value);
+            return;
+        }
+        buf.writeByte(value | 0x80);
+        value >>>= 7;
         buf.writeByte(value);
     }
 
@@ -120,16 +134,32 @@ public final class BufUtil {
     }
 
     public static int readVarInt(final @NotNull ByteBuf buf) {
-        int value = 0;
-        int length = 0;
-        int part;
-        do {
-            part = buf.readByte();
-            value |= (part & 0x7F) << (length++ * 7);
-            if (length > 5) {
-                throw new DecoderException("VarInt is too big");
-            }
-        } while (part < 0);
+        // Fully unrolled VarInt decoder: 1-5 bytes, no loop/multiplication overhead
+        int part = buf.readByte();
+        int value = part & 0x7F;
+        if (part >= 0) {
+            return value;
+        }
+        part = buf.readByte();
+        value |= (part & 0x7F) << 7;
+        if (part >= 0) {
+            return value;
+        }
+        part = buf.readByte();
+        value |= (part & 0x7F) << 14;
+        if (part >= 0) {
+            return value;
+        }
+        part = buf.readByte();
+        value |= (part & 0x7F) << 21;
+        if (part >= 0) {
+            return value;
+        }
+        part = buf.readByte();
+        value |= part << 28;
+        if (part < 0) {
+            throw new DecoderException("VarInt is too big");
+        }
         return value;
     }
 

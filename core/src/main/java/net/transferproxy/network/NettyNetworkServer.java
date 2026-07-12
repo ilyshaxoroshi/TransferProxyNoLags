@@ -33,6 +33,7 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.concurrent.DefaultThreadFactory;
@@ -74,11 +75,15 @@ public class NettyNetworkServer extends ChannelInitializer<Channel> implements N
         final DefaultThreadFactory bossFactory = new DefaultThreadFactory("Boss Thread");
         final DefaultThreadFactory workerFactory = new DefaultThreadFactory("Worker Thread");
 
+        // 0 = auto = CPU cores * 2
         final int bossThread = config.getBossThreads();
-        final int workerThread = config.getWorkerThreads();
+        int workerThread = config.getWorkerThreads();
+        if (workerThread <= 0) {
+            workerThread = Runtime.getRuntime().availableProcessors() * 2;
+        }
 
-        // Use Epoll if available
-        if (config.isUseEpoll() && Epoll.isAvailable()) {
+        // Auto-detect best transport: Linux epoll > NIO fallback
+        if (Epoll.isAvailable()) {
             this.bossGroup = new MultiThreadIoEventLoopGroup(bossThread, bossFactory, EpollIoHandler.newFactory());
             this.workerGroup = new MultiThreadIoEventLoopGroup(workerThread, workerFactory, EpollIoHandler.newFactory());
             channelClass = EpollServerSocketChannel.class;
@@ -97,10 +102,11 @@ public class NettyNetworkServer extends ChannelInitializer<Channel> implements N
                 .childHandler(this)
                 .localAddress(address);
 
-        // Enable tcp no delay
-        if (config.isUseTcpNoDelay()) {
-            bootstrap.childOption(ChannelOption.TCP_NODELAY, true);
-        }
+        // TCP performance tuning
+        bootstrap.childOption(ChannelOption.SO_SNDBUF, 128 * 1024);
+        bootstrap.childOption(ChannelOption.SO_RCVBUF, 128 * 1024);
+        bootstrap.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(32 * 1024, 128 * 1024));
+        bootstrap.childOption(ChannelOption.TCP_NODELAY, true);
 
         this.checkExtraByte = !config.isDisableExtraByteCheck();
 

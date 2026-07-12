@@ -11,14 +11,14 @@ network:
   use-epoll: true
   # Number of threads for handling new network connections.
   boss-threads: 1
-  # Number of threads for handling ongoing network activity.
-  worker-threads: 3
-  # Disables Nagle's algorithm if set to true. False can increase latency but reduce network chatter.
-  use-tcp-no-delay: false
+  # Number of threads for handling ongoing network activity. 0 = auto (CPU cores * 2)
+  worker-threads: 0
+  # Disables Nagle's algorithm if set to true. True reduces latency for interactive traffic.
+  use-tcp-no-delay: true
   # Disables verification of extra byte in packets sent by the player.
   # When this happens, the player is disconnected immediately.
-  # Only turn it on if you know what you are doing.
-  disable-extra-byte-check: false
+  # Turn it off for performance when checks are not critical.
+  disable-extra-byte-check: true
 
 status:
   # Server name displayed in server list.

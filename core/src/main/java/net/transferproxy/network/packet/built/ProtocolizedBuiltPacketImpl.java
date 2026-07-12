@@ -26,8 +26,6 @@ package net.transferproxy.network.packet.built;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
 import net.transferproxy.api.network.packet.Packet;
 import net.transferproxy.api.network.packet.built.ProtocolizedBuiltPacket;
 import net.transferproxy.api.network.protocol.Protocolized;
@@ -36,6 +34,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
@@ -45,7 +44,7 @@ public class ProtocolizedBuiltPacketImpl implements ProtocolizedBuiltPacket {
 
     private final IntFunction<Packet> packetFactory;
     private final int[] protocols;
-    private volatile IntObjectMap<byte[]> dataMap;
+    private final ConcurrentHashMap<Integer, byte[]> dataMap;
     private final boolean lazy;
 
     public ProtocolizedBuiltPacketImpl(final @NotNull Packet packet, final boolean lazy, final int... protocols) {
@@ -78,51 +77,54 @@ public class ProtocolizedBuiltPacketImpl implements ProtocolizedBuiltPacket {
         if (protocols.length == 0) {
             throw new IllegalArgumentException("Protocols must not be empty. Use BuiltPacket instead if the packet is not protocolized.");
         }
-        final IntObjectMap<byte[]> initialMap = new IntObjectHashMap<>(lazy ? 2 : protocols.length);
+        this.dataMap = new ConcurrentHashMap<>(lazy ? 2 : protocols.length);
         if (!lazy) {
             for (final int protocol : protocols) {
-                final byte[] data = this.computeBytes(protocol);
-                initialMap.put(protocol, data);
+                this.dataMap.put(protocol, this.computeBytes(protocol));
             }
         }
-        this.dataMap = initialMap;
     }
 
     @Override
     public ByteBuf get(final @NotNull ByteBufAllocator allocator, final int protocol) {
-        IntObjectMap<byte[]> localMap = this.dataMap;
-        byte[] data = localMap.get(protocol);
+        byte[] data = this.dataMap.get(protocol);
         if (data == null) {
-            synchronized (this) {
-                localMap = this.dataMap;
-                data = localMap.get(protocol);
-                if (data == null) {
-                    final IntObjectMap<byte[]> newMap = copyOf(localMap);
-
-                    if (this.lazy && this.isAvailable(protocol)) {
-                        data = this.computeBytes(protocol, allocator);
-                        newMap.put(protocol, data);
-                    } else {
-                        final int low = this.findLow(protocol);
-                        final byte[] lowData = localMap.get(low);
-                        if (lowData == null) {
-                            data = this.computeBytes(low, allocator);
-                            newMap.put(low, data);
-                            newMap.put(protocol, data);
-                        } else {
-                            data = lowData;
-                            newMap.put(protocol, data);
-                        }
-                    }
-
-                    this.dataMap = newMap;
-                }
-            }
+            data = this.resolveData(protocol, allocator);
         }
-
         final ByteBuf buf = allocator.buffer(data.length, data.length);
         buf.writeBytes(data);
         return buf;
+    }
+
+    private byte[] resolveData(final int protocol, final ByteBufAllocator allocator) {
+        // Double-check after potential concurrent put
+        byte[] data = this.dataMap.get(protocol);
+        if (data != null) return data;
+
+        final int targetProtocol;
+        if (this.lazy && this.isAvailable(protocol)) {
+            targetProtocol = protocol;
+        } else {
+            targetProtocol = this.findLow(protocol);
+        }
+
+        // Check if nearest protocol data already exists
+        data = this.dataMap.get(targetProtocol);
+        if (data != null) {
+            this.dataMap.put(protocol, data);
+            return data;
+        }
+
+        // Compute and cache
+        data = this.computeBytes(targetProtocol, allocator);
+        final byte[] existing = this.dataMap.putIfAbsent(targetProtocol, data);
+        if (existing != null) {
+            data = existing;
+        }
+        if (targetProtocol != protocol) {
+            this.dataMap.put(protocol, data);
+        }
+        return data;
     }
 
     private int findLow(final int protocol) {
@@ -165,14 +167,6 @@ public class ProtocolizedBuiltPacketImpl implements ProtocolizedBuiltPacket {
             }
         }
         return false;
-    }
-
-    private static IntObjectMap<byte[]> copyOf(final IntObjectMap<byte[]> source) {
-        final IntObjectMap<byte[]> copy = new IntObjectHashMap<>(source.size() + 1);
-        for (final IntObjectMap.PrimitiveEntry<byte[]> entry : source.entries()) {
-            copy.put(entry.key(), entry.value());
-        }
-        return copy;
     }
 
 }
