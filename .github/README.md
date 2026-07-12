@@ -1,67 +1,107 @@
-## 🌐 Overview
+# TransferProxyNoLags
 
-**TransferProxy** is a proxy for Minecraft **Java Edition**, harnessing the power of the new transfer packet feature
-introduced in Minecraft **24w03a**
-(release in 1.20.5). This feature allows server-to-server transfers, opening up a myriad of possibilities for server
-networks.
-Whether it's for large-scale server networks or small private servers, TransferProxy aims to provide a versatile and
-efficient solution for Minecraft server management.
-
-Here are the project features:
-
-- ⚡ **Performance**: The project was designed to be lightweight and inexpensive in terms of resources. It is capable of
-  supporting thousands of requests simultaneously.
-- ⚙️ **Plugins**: The project works with plugins, which allows you to create your own redirection rules.
-- 🍪 **Cookie**: The cookie system added in the same snapshot is also implemented.
-- 🌎 **Community**: The project aims to be community and collaborative, suggestions are appreciated.
-- 📚 **Wiki**: Documentation can be found [here](https://github.com/YvanMazy/TransferProxy/wiki), if any information is
-  missing feel free to make an issue.
-
-## 📥️ Installation and Setup
-
-1. Download the latest version of TransferProxy by clicking [here](https://github.com/YvanMazy/TransferProxy/releases).
-2. Drag and drop the jar file into a folder.
-3. Start the server with ``java -jar TransferProxy-version.jar``
-4. The configuration and plugins folder should be created.
-
-#### ➡️ Now what's next?
-
-When your server is correctly installed, you must install a plugin to define the redirection rules and customize the
-motd if necessary. You have two options:
-
-- Download an official plugin [here](https://github.com/YvanMazy/TransferProxy/wiki#official-plugins), if you want to
-  do tests or if your project is small.
-- Develop your own plugin, documentation is available [here](https://github.com/YvanMazy/TransferProxy/wiki/Plugins).
-
-In case you want to develop your own plugin, a demo repository is
-available [here](https://github.com/YvanMazy/TransferProxy-Demo-plugin). It uses Gradle.
-
-#### 🆘 Troubleshooting
-
-If you have any problems using TransferProxy, the first thing to do is to check that you haven't missed anything in
-the [official wiki](https://github.com/YvanMazy/TransferProxy/wiki).
-<br>If you can't find a solution, then you can create a GitHub issue. It should get an answer quickly.
-
-## 📋 Requirements
-
-- Java version: 17 or higher.
-- Minecraft client version: 1.20.5 or higher, to support the transfer packet functionality.
-
-## 🔌 Contribution
-
-Contributions are highly encouraged! Whether it's through raising issues or submitting pull requests. Forks are even
-recommended to best adapt TransferProxy to your server. The project was designed to make it easy to modify certain
-parts.
-
-⭐ If you're interested in the project, please leave a star to show your support. It's through contributions like these
-that the project is able to exist and thrive.
-
-## 📄 License - MIT
-
-TransferProxy is under the MIT License, offering the freedom to use, modify, and distribute the software. This open
-license is ideal for collaborative development but does not provide any warranty or liability protection.
+> ⚠️ **Форк** [TransferProxy](https://github.com/YvanMazy/TransferProxy) от YvanMazy  
+> Оптимизирован для **Windows** и низкого пинга при работе с несколькими инстансами.  
+> Оригинальный README сохранён ниже.
 
 ---
 
-*Note: TransferProxy is constantly evolving. Features, documentation, and setup instructions are subject to change as
-the project progresses.*
+## 🚀 Оптимизации в форке
+
+- **TCP_NODELAY** включён по умолчанию (убирает задержку Nagle в +40 мс)
+- **Количество рабочих потоков (Worker threads)** = CPU × 2 (автоматически, вместо фиксированных 3)
+- **SO_SNDBUF / SO_RCVBUF** = 128 КБ (вместо 8 КБ)
+- **Порог буфера записи (WriteBufferWaterMark)** = 32 КБ / 128 КБ
+- **Быстрый путь для VarInt** (полный unroll, без циклов)
+- **Zero-copy** в BuiltPacket (используется Unpooled.wrappedBuffer)
+- **ConcurrentHashMap** вместо IntObjectHashMap + copyOf (без блокировок при промахе кэша)
+- **disable-extra-byte-check** = true по умолчанию
+
+---
+
+## 📋 Оглавление
+
+- [Обзор](#-обзор)
+- [Установка и настройка](#-установка-и-настройка)
+- [Требования](#-требования)
+- [Вклад в проект](#-вклад-в-проект)
+- [Лицензия](#-лицензия)
+
+---
+
+## 🌐 Обзор
+
+**TransferProxy** — это прокси для Minecraft **Java Edition**, использующий новый пакет передачи (transfer packet), добавленный в Minecraft **24w03a** (релиз в 1.20.5). Этот функционал позволяет передавать игроков между серверами, открывая широкие возможности для сетей серверов. Будь то крупные сети или небольшие частные проекты, TransferProxy стремится стать универсальным и эффективным решением для управления Minecraft-серверами.
+
+### Возможности проекта:
+
+- ⚡ **Производительность**: Проект лёгкий и нетребовательный к ресурсам. Способен обрабатывать тысячи запросов одновременно.
+- ⚙️ **Плагины**: Поддерживает плагины, позволяя создавать собственные правила перенаправления.
+- 🍪 **Cookie**: Реализована система cookie, добавленная в том же снимке (snapshot).
+- 🌎 **Сообщество**: Проект открыт для сообщества; любые предложения приветствуются.
+- 📚 **Вики**: Документация доступна [здесь](https://github.com/YvanMazy/TransferProxy/wiki); если какой-то информации не хватает, создавайте Issue.
+
+---
+
+## 📥 Установка и настройка
+
+1. Загрузите последнюю версию TransferProxy [здесь](https://github.com/YvanMazy/TransferProxy/releases).
+2. Поместите JAR-файл в отдельную папку.
+3. Запустите сервер командой:
+   ```bash
+   java -jar TransferProxy-version.jar
+
+       Будут созданы папки конфигурации и плагинов.
+
+➡️ Что дальше?
+
+После установки необходимо установить плагин для определения правил перенаправления и настройки MOTD (сообщения дня). У вас есть два варианта:
+
+    Скачать официальный плагин здесь, если вы хотите провести тестирование или ваш проект небольшой.
+
+    Разработать собственный плагин. Документация доступна здесь.
+
+Если вы планируете создать свой плагин, пример репозитория доступен здесь. Он использует Gradle.
+🆘 Решение проблем
+
+Если у вас возникли проблемы с использованием TransferProxy, сначала проверьте, не упустили ли вы что-то в официальной вики.
+
+
+Если решение не найдено, создайте Issue на GitHub — вы получите ответ в ближайшее время.
+📋 Требования
+
+    Java: версия 17 или выше.
+
+    Minecraft клиент: версия 1.20.5 или выше для поддержки пакетов передачи.
+
+🔌 Вклад в проект
+
+Вклад всячески приветствуется! Будь то через создание Issue или Pull Request'ов. Форки также рекомендуются, чтобы наилучшим образом адаптировать TransferProxy под ваш сервер. Проект спроектирован так, чтобы упростить модификацию отдельных частей.
+
+⭐ Если проект вам интересен, пожалуйста, поставьте звезду — это поддержит разработку. Именно благодаря таким вкладам проект может существовать и развиваться.
+📄 Лицензия
+
+TransferProxy распространяется под лицензией MIT, предоставляющей свободу использования, модификации и распространения. Эта открытая лицензия идеальна для совместной разработки, но не предоставляет никаких гарантий или защиты от ответственности.
+
+    Примечание: TransferProxy постоянно развивается. Функционал, документация и инструкции по установке могут меняться по мере развития проекта.
+
+📊 Сравнение оптимизаций
+Параметр	Оригинал	Форк (NoLags)
+TCP_NODELAY	Выключен	✅ Включён
+Worker threads	3 (фиксировано)	CPU × 2 (авто)
+SO_SNDBUF/SO_RCVBUF	8 КБ	128 КБ
+WriteBufferWaterMark	По умолчанию	32 КБ / 128 КБ
+VarInt обработка	Циклы	Полный unroll
+Кэширование пакетов	IntObjectHashMap	ConcurrentHashMap
+Zero-copy	Нет	✅ Да
+disable-extra-byte-check	false	true
+
+---
+
+### 📝 Как использовать этот Markdown
+
+1. Скопируйте весь текст выше
+2. Вставьте в файл `README.md` в корне вашего репозитория
+3. Сохраните и закоммитьте
+
+Markdown отрендерится красиво на GitHub, GitLab, Bitbucket и в любом Markdown-редакторе. Все ссылки активны, структура чёткая, технические детали выделены в таблице для наглядности.
