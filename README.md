@@ -1,3 +1,28 @@
+# TransferProxyNoLags
+
+> ⚠️ **Fork** of [TransferProxy](https://github.com/YvanMazy/TransferProxy) by YvanMazy  
+> Optimized for **Windows** and low latency when running multiple instances.  
+> The original README is preserved below.
+
+---
+
+### 🚀 Optimizations in this fork
+
+- **TCP_NODELAY** enabled by default (removes the +40ms Nagle delay)
+- **Worker threads** = CPU × 2 (auto-calculated, instead of a fixed 3)
+- **SO_SNDBUF / SO_RCVBUF** = 128KB (instead of 8KB)
+- **WriteBufferWaterMark** (32KB / 128KB)
+- **VarInt** fast-path (fully unrolled, no loops)
+- **Zero-copy** in BuiltPacket (Unpooled.wrappedBuffer)
+- **ConcurrentHashMap** instead of IntObjectHashMap + copyOf (lock-free on cache miss)
+- **disable-extra-byte-check** = true by default
+
+---
+
+Original README:
+
+---
+
 ## 🌐 Overview
 
 **TransferProxy** is a proxy for Minecraft **Java Edition**, harnessing the power of the new transfer packet feature
