@@ -11,7 +11,7 @@ network:
   use-epoll: true
   # Number of threads for handling new network connections.
   boss-threads: 1
-  # Number of threads for handling ongoing network activity. 0 = auto (CPU cores * 2)
+  # Number of threads for handling ongoing network activity. 0 = auto (min(CPU cores, 4))
   worker-threads: 0
   # Disables Nagle's algorithm if set to true. True reduces latency for interactive traffic.
   use-tcp-no-delay: true
@@ -53,15 +53,15 @@ miscellaneous:
 
 logging:
   # Enable logging of connection establishment events.
-  log-connect: true
+  log-connect: false
   # Enable logging of connection disconnect events.
-  log-disconnect: true
+  log-disconnect: false
   # Enable logging of connection timeout events.
-  log-timeout: true
+  log-timeout: false
   # Enable logging when a disconnection is caused by an exception.
-  log-disconnect-for-exception: true
+  log-disconnect-for-exception: false
   # Enable logging of connection transfer events to another server.
-  log-transfer: true
+  log-transfer: false
   # Displays the full exception when a connection is terminated by an exception.
   # Only works when the "log-disconnect-for-exception" option is enabled.
   log-complete-disconnect-exception: false

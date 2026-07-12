@@ -79,7 +79,7 @@ public class NettyNetworkServer extends ChannelInitializer<Channel> implements N
         final int bossThread = config.getBossThreads();
         int workerThread = config.getWorkerThreads();
         if (workerThread <= 0) {
-            workerThread = Runtime.getRuntime().availableProcessors() * 2;
+            workerThread = Math.min(Runtime.getRuntime().availableProcessors(), 4);
         }
 
         // Auto-detect best transport: Linux epoll > NIO fallback
@@ -98,6 +98,7 @@ public class NettyNetworkServer extends ChannelInitializer<Channel> implements N
         final InetSocketAddress address = new InetSocketAddress(config.getBindAddress(), config.getBindPort());
         final ServerBootstrap bootstrap = new ServerBootstrap().channel(channelClass)
                 .option(ChannelOption.SO_REUSEADDR, true)
+                .option(ChannelOption.SO_BACKLOG, 128)
                 .group(this.bossGroup, this.workerGroup)
                 .childHandler(this)
                 .localAddress(address);
